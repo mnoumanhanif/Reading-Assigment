@@ -1,9 +1,9 @@
 # Reading-Assigment
 24K-8001 
 
-# 📘 Reading Assignment: 24K-8001
+# 📘 Reading Assignment by 24K-8001
 
-Welcome to the **Reading Assignment** repository for course **24K-8001**. This collection offers an in-depth exploration of **Principal Component Analysis (PCA)**, combining theoretical insights with practical implementations.
+Welcome to the **Reading Assignment** repository for course **Advanced Big Data Analytics** by **24K-8001**. This collection offers an in-depth exploration of **Principal Component Analysis (PCA)**, combining theoretical insights with practical implementations.
 
 ## 📂 Repository Contents
 
