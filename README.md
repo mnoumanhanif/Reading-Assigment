@@ -1,12 +1,6 @@
 # Reading-Assigment
 24K-8001 
 
-[![Principal Component Analysis — PCA ...](https://images.openai.com/thumbnails/cad5b56d5654a3295bfdb158a6fbb836.jpeg)](https://medium.com/data-science/a-complete-guide-to-principal-component-analysis-pca-in-machine-learning-664f34fc3e5a)
-
-Certainly! Here's a comprehensive `README.md` file for the [Reading Assignment](https://mnoumanhanif.github.io/Reading-Assigment/) repository, summarizing its contents and providing guidance for users.
-
----
-
 # 📘 Reading Assignment: 24K-8001
 
 Welcome to the **Reading Assignment** repository for course **24K-8001**. This collection offers an in-depth exploration of **Principal Component Analysis (PCA)**, combining theoretical insights with practical implementations.
