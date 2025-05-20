@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive PCA Explanation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Visualization & Content Choices:
+        - Overview: Text (HTML). Goal: Inform.
+        - PCA Process (Interactive):
+            - Standardization: Table update via JS. Goal: Demonstrate.
+            - Covariance Matrix: Table update via JS. Goal: Demonstrate.
+            - Eigenvalues/vectors: Text display via JS. Goal: Inform.
+            - Selecting Components: Chart.js bar chart for explained variance. Goal: Visualize, Compare.
+            - Transformation: Table update via JS. Goal: Demonstrate.
+        - Numerical Example: Sequential display of calculations/results from report (HTML/JS). Goal: Illustrate. This section will largely mirror the interactive steps but follow the report's specific example flow.
+        - Visualization: Chart.js scatter plots for original standardized data and transformed data, Chart.js bar chart for variance. Goal: Visualize, Relate.
+        - Pros/Cons: HTML lists/columns. Goal: Inform.
+        - Applications: HTML list. Goal: Inform.
+        - All interactions aim to make the mathematical steps and their outcomes tangible.
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .tab-button { transition: all 0.3s ease; }
+        .tab-button.active { border-color: #0284c7; color: #0284c7; background-color: #e0f2fe; }
+        .content-section { display: none; }
+        .content-section.active { display: block; }
+        .formula-block { margin: 0.75rem 0; padding: 0.75rem; background-color: #f3f4f6; border-radius: 0.25rem; text-align: center; font-size: 1.1em; }
+        table { width: auto; margin: 1rem auto; border-collapse: collapse; }
+        th, td { border: 1px solid #d1d5db; padding: 0.5rem; text-align: center; }
+        th { background-color: #f9fafb; }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 300px; max-height: 350px; }
+        @media (min-width: 768px) { .chart-container { height: 350px; max-height: 400px;} }
+        .step-button { background-color: #0ea5e9; color: white; padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer; margin-top: 0.5rem; }
+        .step-button:hover { background-color: #0284c7; }
+        .code-like { background-color: #1f2937; color: #d1d5db; padding: 0.5rem; border-radius: 0.25rem; font-family: monospace; white-space: pre; }
+    </style>
+</head>
+<body class="bg-amber-50 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-sky-700">Understanding Principal Component Analysis (PCA)</h1>
+            <p class="text-lg text-gray-600 mt-2">An Interactive Guide to Dimensionality Reduction</p>
+        </header>
+
+        <nav class="mb-8 flex flex-wrap justify-center gap-2">
+            <button class="tab-button active px-4 py-2 border-b-2 border-transparent hover:border-sky-500" onclick="showSection('overview')">Overview</button>
+            <button class="tab-button px-4 py-2 border-b-2 border-transparent hover:border-sky-500" onclick="showSection('process')">The PCA Process</button>
+            <button class="tab-button px-4 py-2 border-b-2 border-transparent hover:border-sky-500" onclick="showSection('numerical-example')">Numerical Example</button>
+            <button class="tab-button px-4 py-2 border-b-2 border-transparent hover:border-sky-500" onclick="showSection('visualization')">Visualization</button>
+            <button class="tab-button px-4 py-2 border-b-2 border-transparent hover:border-sky-500" onclick="showSection('pros-cons')">Pros & Cons</button>
+            <button class="tab-button px-4 py-2 border-b-2 border-transparent hover:border-sky-500" onclick="showSection('applications')">Applications</button>
+            <button class="tab-button px-4 py-2 border-b-2 border-transparent hover:border-sky-500" onclick="showSection('conclusion')">Conclusion</button>
+        </nav>
+
+        <main>
+            <section id="overview" class="content-section active p-6 bg-white rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold text-sky-600 mb-4">1. What is Dimensionality Reduction and PCA?</h2>
+                <p class="mb-3">In many real-world datasets, we encounter data with a very large number of features (dimensions). This "curse of dimensionality" can lead to increased computational complexity, overfitting of models, and difficulty in visualization. <strong>Dimensionality reduction</strong> is the process of reducing these features while trying to retain meaningful properties of the original data.</p>
+                <p class="mb-3"><strong>Principal Component Analysis (PCA)</strong> is a popular unsupervised technique for dimensionality reduction. It identifies new features, called principal components, that are linear combinations of the original features. These components are chosen to capture the maximum possible variance in the data, in decreasing order of importance. By selecting only the first few principal components, we can reduce dimensionality while minimizing information loss.</p>
+                <p>This guide will walk you through how PCA works, its mathematical underpinnings, and its applications, using interactive examples.</p>
+            </section>
+
+            <section id="process" class="content-section p-6 bg-white rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold text-sky-600 mb-4">2. The PCA Process: Step-by-Step</h2>
+                <p class="mb-4">PCA involves several key mathematical steps to transform high-dimensional data into a lower-dimensional representation. We'll use a small sample dataset to illustrate these steps interactively. The data has 2 features (X1, X2) and 5 samples.</p>
+                
+                <div class="mb-6 p-4 border border-gray-200 rounded-lg">
+                    <h3 class="text-xl font-medium text-gray-700 mb-2">Initial Sample Data (X)</h3>
+                    <div id="initial-data-process-table"></div>
+                    <button class="step-button" onclick="runProcessStep(1)">Show Initial Data</button>
+                </div>
+
+                <div class="mb-6 p-4 border border-gray-200 rounded-lg">
+                    <h3 class="text-xl font-medium text-gray-700 mb-2">Step 1: Standardization</h3>
+                    <p>Data is standardized to have zero mean and unit variance. Formula:</p>
+                    <div class="formula-block">$$X'_{j} = \frac{X_j - \text{mean}(X_j)}{\text{std_dev}(X_j)}$$</div>
+                    <div id="standardized-data-process-table" class="mt-2"></div>
+                    <button class="step-button" onclick="runProcessStep(2)">Standardize Data</button>
+                </div>
+
+                <div class="mb-6 p-4 border border-gray-200 rounded-lg">
+                    <h3 class="text-xl font-medium text-gray-700 mb-2">Step 2: Covariance Matrix Calculation</h3>
+                    <p>Calculate the covariance matrix of the standardized data. Formula:</p>
+                    <div class="formula-block">$$S = \frac{1}{n-1} (X')^T X'$$</div>
+                    <div id="covariance-matrix-process-table" class="mt-2"></div>
+                    <button class="step-button" onclick="runProcessStep(3)">Calculate Covariance Matrix</button>
+                </div>
+
+                <div class="mb-6 p-4 border border-gray-200 rounded-lg">
+                    <h3 class="text-xl font-medium text-gray-700 mb-2">Step 3: Eigenvalue and Eigenvector Computation</h3>
+                    <p>Perform eigendecomposition on the covariance matrix to find eigenvalues (\(\lambda\)) and eigenvectors (\(v\)). Equation:</p>
+                    <div class="formula-block">$$S \cdot \mathbf{v} = \lambda \cdot \mathbf{v}$$</div>
+                    <div id="eigen-process-output" class="mt-2"></div>
+                    <button class="step-button" onclick="runProcessStep(4)">Compute Eigenvalues/vectors</button>
+                </div>
+
+                <div class="mb-6 p-4 border border-gray-200 rounded-lg">
+                    <h3 class="text-xl font-medium text-gray-700 mb-2">Step 4: Selecting Principal Components</h3>
+                    <p>Select the top k eigenvectors (principal components) based on their eigenvalues (amount of variance explained).</p>
+                    <div id="component-selection-process-output" class="mt-2">
+                        <p>For our example, we'll select k=1 component (PC1).</p>
+                        <div id="selected-eigenvectors-process-table" class="mt-2"></div>
+                    </div>
+                    <div class="chart-container my-4 mx-auto">
+                        <canvas id="explainedVarianceChartProcess"></canvas>
+                    </div>
+                    <button class="step-button" onclick="runProcessStep(5)">Select Components & Show Variance</button>
+                </div>
+                
+                <div class="mb-6 p-4 border border-gray-200 rounded-lg">
+                    <h3 class="text-xl font-medium text-gray-700 mb-2">Step 5: Transforming the Data</h3>
+                    <p>Project the standardized data onto the selected principal components. Formula:</p>
+                    <div class="formula-block">$$Z = X' \cdot W$$</div>
+                    <p>(where W is the matrix of selected eigenvectors)</p>
+                    <div id="transformed-data-process-table" class="mt-2"></div>
+                    <button class="step-button" onclick="runProcessStep(6)">Transform Data</button>
+                </div>
+            </section>
+
+            <section id="numerical-example" class="content-section p-6 bg-white rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold text-sky-600 mb-4">3. Numerical Example Walkthrough</h2>
+                <p class="mb-4">Let's walk through the PCA steps using the specific numerical values from the report. This section mirrors "The PCA Process" but focuses on the detailed calculations for the given example dataset.</p>
+                <p class="mb-3"><strong>Dataset (X):</strong></p>
+                <div id="numerical-initial-data-table" class="mb-3"></div>
+
+                <h3 class="text-xl font-medium text-gray-700 mt-4 mb-2">Step 1: Standardization</h3>
+                <p>Mean(X1) = 3, Mean(X2) = 3</p>
+                <p>StdDev(X1) \(\approx\) 1.581, StdDev(X2) \(\approx\) 1.581</p>
+                <p class="mt-1"><strong>Standardized Data (X'):</strong></p>
+                <div id="numerical-standardized-data-table" class="mb-3"></div>
+
+                <h3 class="text-xl font-medium text-gray-700 mt-4 mb-2">Step 2: Covariance Matrix Calculation</h3>
+                <p>Using \(S = \frac{1}{n-1} (X')^T X'\):</p>
+                <div id="numerical-covariance-matrix-table" class="mb-3"></div>
+
+                <h3 class="text-xl font-medium text-gray-700 mt-4 mb-2">Step 3: Eigenvalue and Eigenvector Computation</h3>
+                <p>Solving \(\lambda^2 - 2\lambda + 0.36 = 0\) gives:</p>
+                <p>Eigenvalue 1 (\(\lambda_1\)) = 1.8</p>
+                <p>Eigenvalue 2 (\(\lambda_2\)) = 0.2</p>
+                <p class="mt-1"><strong>Eigenvectors (v):</strong></p>
+                <div id="numerical-eigenvectors-table" class="mb-3"></div>
+
+                <h3 class="text-xl font-medium text-gray-700 mt-4 mb-2">Step 4: Selecting Principal Components</h3>
+                <p>Total variance = \(\lambda_1 + \lambda_2 = 1.8 + 0.2 = 2.0\).</p>
+                <p>Explained variance by PC1 (\(\lambda_1\)) = 1.8 / 2.0 = 0.9 (90%)</p>
+                <p>Explained variance by PC2 (\(\lambda_2\)) = 0.2 / 2.0 = 0.1 (10%)</p>
+                <p>We select PC1 (corresponding to \(\lambda_1\)). Transformation Matrix W:</p>
+                <div id="numerical-W-matrix-table" class="mb-3"></div>
+
+                <h3 class="text-xl font-medium text-gray-700 mt-4 mb-2">Step 5: Transforming the Data</h3>
+                <p>Using \(Z = X' \cdot W\):</p>
+                <div id="numerical-transformed-data-table" class="mb-3"></div>
+            </section>
+
+            <section id="visualization" class="content-section p-6 bg-white rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold text-sky-600 mb-4">4. Visualizing PCA</h2>
+                <p class="mb-4">Visualizations can help build intuition for what PCA is doing. We'll use the data from our numerical example.</p>
+                
+                <div class="mb-8">
+                    <h3 class="text-xl font-medium text-gray-700 mb-2">Standardized Original Data (X') & Principal Components</h3>
+                    <p class="mb-2">This chart shows the 5 data points after standardization. The lines (conceptually) represent the directions of the principal components. PC1 is the direction of maximum variance.</p>
+                    <div class="chart-container mx-auto">
+                        <canvas id="standardizedDataChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="mb-8">
+                    <h3 class="text-xl font-medium text-gray-700 mb-2">Explained Variance by Principal Components</h3>
+                     <p class="mb-2">This bar chart shows how much variance each principal component captures. PC1 captures 90% of the variance in this example.</p>
+                    <div class="chart-container mx-auto">
+                        <canvas id="explainedVarianceChartViz"></canvas>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-medium text-gray-700 mb-2">Data Transformed onto PC1 (Z)</h3>
+                    <p class="mb-2">This chart shows the data points projected onto the first principal component (PC1). The original 2D data is now represented in 1D.</p>
+                    <div class="chart-container mx-auto">
+                        <canvas id="transformedDataChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section id="pros-cons" class="content-section p-6 bg-white rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold text-sky-600 mb-4">5. Advantages and Disadvantages of PCA</h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-xl font-medium text-teal-600 mb-2">Advantages</h3>
+                        <ul class="list-disc list-inside space-y-1">
+                            <li>Reduces dimensionality, simplifying models and speeding up computation.</li>
+                            <li>Removes redundancy by identifying and removing correlated features.</li>
+                            <li>Can reduce noise by focusing on high-variance components.</li>
+                            <li>Improves algorithm performance by mitigating overfitting and multicollinearity.</li>
+                            <li>Useful for data visualization by projecting to 2D or 3D.</li>
+                            <li>Creates new features from combinations, not just subset selection.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-medium text-red-600 mb-2">Disadvantages / Limitations</h3>
+                        <ul class="list-disc list-inside space-y-1">
+                            <li>Some information is inevitably lost.</li>
+                            <li>Principal components can be hard to interpret as they are linear combinations of original features.</li>
+                            <li>Sensitive to data scaling; standardization is crucial.</li>
+                            <li>Assumes linear relationships; may not work well for highly non-linear data.</li>
+                            <li>Assumes orthogonal components, which might not fit all data structures.</li>
+                            <li>Assumes high variance means high importance, which isn't always true (e.g., for class separability).</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section id="applications" class="content-section p-6 bg-white rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold text-sky-600 mb-4">6. Applications of PCA</h2>
+                <p class="mb-3">PCA is a versatile technique used in various fields:</p>
+                <ul class="list-disc list-inside space-y-2">
+                    <li><strong>Image Compression:</strong> Reducing the number of dimensions (pixels or features) needed to represent an image.</li>
+                    <li><strong>Facial Recognition (Eigenfaces):</strong> Representing faces as a combination of principal components derived from a dataset of faces.</li>
+                    <li><strong>Bioinformatics:</strong> Analyzing high-dimensional gene expression data to find patterns or reduce noise.</li>
+                    <li><strong>Finance:</strong> Analyzing stock data, risk management, and building factor models.</li>
+                    <li><strong>Anomaly Detection:</strong> Outliers may be more apparent in the lower-dimensional space or have a high reconstruction error when projected back.</li>
+                    <li><strong>Data Preprocessing:</strong> Used as a step before applying supervised machine learning algorithms to improve performance or reduce training time.</li>
+                    <li><strong>Neuroscience:</strong> Analyzing neural activity patterns.</li>
+                </ul>
+            </section>
+
+            <section id="conclusion" class="content-section p-6 bg-white rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold text-sky-600 mb-4">7. Conclusion</h2>
+                <p class="mb-3">Principal Component Analysis (PCA) is a powerful and widely used technique for dimensionality reduction. By transforming data into a new set of uncorrelated variables (principal components) that capture the maximum variance, it helps in simplifying data, reducing noise, and often improving the performance of machine learning models.</p>
+                <p>However, it's important to understand its underlying assumptions and limitations, such as the potential loss of interpretability and its sensitivity to data scaling. When applied correctly, PCA can be an invaluable tool in the data scientist's toolkit for exploring and preparing complex datasets.</p>
+            </section>
+        </main>
+
+        <footer class="text-center mt-12 py-4 border-t border-gray-300">
+            <p class="text-sm text-gray-500">Interactive PCA Guide | Exploring Data Dimensions</p>
+        </footer>
+    </div>
+
+<script>
+    let currentSection = 'overview';
+    const sections = document.querySelectorAll('.content-section');
+    const tabButtons = document.querySelectorAll('.tab-button');
+
+    const originalData = {
+        headers: ["Sample", "Feature 1 (X1)", "Feature 2 (X2)"],
+        rows: [
+            [1, 2, 3],
+            [2, 4, 5],
+            [3, 5, 4],
+            [4, 3, 2],
+            [5, 1, 1]
+        ]
+    };
+
+    const standardizedDataMatrix = [
+        [-0.632, 0.000],
+        [0.632, 1.265],
+        [1.265, 0.632],
+        [0.000, -0.632],
+        [-1.265, -1.265]
+    ];
+
+    const standardizedDataTable = {
+        headers: ["Sample", "X1'", "X2'"],
+        rows: [
+            [1, -0.632, 0.000],
+            [2, 0.632, 1.265],
+            [3, 1.265, 0.632],
+            [4, 0.000, -0.632],
+            [5, -1.265, -1.265]
+        ]
+    };
+    
+    const covarianceMatrix = {
+        headers: ["", "X1'", "X2'"],
+        rows: [
+            ["X1'", 1.0, 0.8],
+            ["X2'", 0.8, 1.0]
+        ]
+    };
+
+    const eigenvalues = [1.8, 0.2]; 
+    const eigenvector1 = [0.707, 0.707];
+    const eigenvector2 = [0.707, -0.707];
+
+    const W_matrix = { 
+        headers: ["PC1"],
+        rows: [
+            [0.707],
+            [0.707]
+        ]
+    };
+
+    const transformedData = { 
+        headers: ["Sample", "PC1 Score (Z)"],
+        rows: [
+            [1, -0.447],
+            [2, 1.341],
+            [3, 1.341],
+            [4, -0.447],
+            [5, -1.788]
+        ]
+    };
+    
+    let explainedVarianceChartInstanceProcess = null;
+    let standardizedDataChartInstance = null;
+    let explainedVarianceChartInstanceViz = null;
+    let transformedDataChartInstance = null;
+
+    function showSection(sectionId) {
+        sections.forEach(section => {
+            section.classList.remove('active');
+            if (section.id === sectionId) {
+                section.classList.add('active');
+            }
+        });
+        tabButtons.forEach(button => {
+            button.classList.remove('active');
+            if (button.getAttribute('onclick').includes(sectionId)) {
+                button.classList.add('active');
+            }
+        });
+        currentSection = sectionId;
+        if (typeof MathJax !== 'undefined' && typeof MathJax.typeset === 'function') {
+            MathJax.typesetPromise([document.getElementById(sectionId)]).catch((err) => console.log('MathJax typeset error:', err));
+        }
+        if (sectionId === 'visualization') {
+            initVisualizationCharts();
+        }
+        if (sectionId === 'process') {
+            document.getElementById('initial-data-process-table').innerHTML = '';
+            document.getElementById('standardized-data-process-table').innerHTML = '';
+            document.getElementById('covariance-matrix-process-table').innerHTML = '';
+            document.getElementById('eigen-process-output').innerHTML = '';
+            document.getElementById('selected-eigenvectors-process-table').innerHTML = '';
+            document.getElementById('transformed-data-process-table').innerHTML = '';
+            if (explainedVarianceChartInstanceProcess && typeof explainedVarianceChartInstanceProcess.destroy === 'function') {
+                 explainedVarianceChartInstanceProcess.destroy();
+            }
+            explainedVarianceChartInstanceProcess = null;
+        }
+    }
+
+    function createHtmlTable(dataObject) {
+        let tableHtml = '<table><thead><tr>';
+        dataObject.headers.forEach(header => tableHtml += `<th>${header}</th>`);
+        tableHtml += '</tr></thead><tbody>';
+        dataObject.rows.forEach(row => {
+            tableHtml += '<tr>';
+            row.forEach(cell => tableHtml += `<td>${typeof cell === 'number' ? cell.toFixed(3) : cell}</td>`);
+            tableHtml += '</tr>';
+        });
+        tableHtml += '</tbody></table>';
+        return tableHtml;
+    }
+
+    function populateNumericalExampleTables() {
+        document.getElementById('numerical-initial-data-table').innerHTML = createHtmlTable(originalData);
+        document.getElementById('numerical-standardized-data-table').innerHTML = createHtmlTable(standardizedDataTable);
+        document.getElementById('numerical-covariance-matrix-table').innerHTML = createHtmlTable(covarianceMatrix);
+        
+        let eigenHtml = `<p>Eigenvalue 1 (\\(\\lambda_1\\)) = ${eigenvalues[0]}</p>`;
+        eigenHtml += `<p>Eigenvector 1 (v1) = [${eigenvector1.join(', ')}]</p>`;
+        eigenHtml += `<p>Eigenvalue 2 (\\(\\lambda_2\\)) = ${eigenvalues[1]}</p>`;
+        eigenHtml += `<p>Eigenvector 2 (v2) = [${eigenvector2.join(', ')}]</p>`;
+        document.getElementById('numerical-eigenvectors-table').innerHTML = eigenHtml;
+
+        document.getElementById('numerical-W-matrix-table').innerHTML = createHtmlTable(W_matrix);
+        document.getElementById('numerical-transformed-data-table').innerHTML = createHtmlTable(transformedData);
+        if (typeof MathJax !== 'undefined' && typeof MathJax.typeset === 'function') {
+             MathJax.typesetPromise([document.getElementById('numerical-example')]).catch((err) => console.log('MathJax typeset error:', err));
+        }
+    }
+
+    function runProcessStep(step) {
+        let elementToTypeset = null;
+        switch(step) {
+            case 1: 
+                document.getElementById('initial-data-process-table').innerHTML = createHtmlTable(originalData);
+                elementToTypeset = document.getElementById('initial-data-process-table').parentNode;
+                break;
+            case 2: 
+                document.getElementById('standardized-data-process-table').innerHTML = createHtmlTable(standardizedDataTable);
+                elementToTypeset = document.getElementById('standardized-data-process-table').parentNode;
+                break;
+            case 3: 
+                document.getElementById('covariance-matrix-process-table').innerHTML = createHtmlTable(covarianceMatrix);
+                elementToTypeset = document.getElementById('covariance-matrix-process-table').parentNode;
+                break;
+            case 4: 
+                let eigenOutputHtml = `<p class="font-semibold">Eigenvalues:</p>
+                                       <p>\\(\\lambda_1 = ${eigenvalues[0].toFixed(3)}\\)</p>
+                                       <p>\\(\\lambda_2 = ${eigenvalues[1].toFixed(3)}\\)</p>
+                                       <p class="font-semibold mt-2">Eigenvectors (as column vectors):</p>
+                                       <p>\\(v_1 = [${eigenvector1[0].toFixed(3)}, ${eigenvector1[1].toFixed(3)}]^T\\)</p>
+                                       <p>\\(v_2 = [${eigenvector2[0].toFixed(3)}, ${eigenvector2[1].toFixed(3)}]^T\\)</p>`;
+                document.getElementById('eigen-process-output').innerHTML = eigenOutputHtml;
+                elementToTypeset = document.getElementById('eigen-process-output').parentNode;
+                break;
+            case 5: 
+                document.getElementById('selected-eigenvectors-process-table').innerHTML = `<p class="font-semibold">Selected W (using v1):</p>` + createHtmlTable(W_matrix);
+                renderExplainedVarianceChart('explainedVarianceChartProcess', eigenvalues);
+                elementToTypeset = document.getElementById('selected-eigenvectors-process-table').parentNode;
+                break;
+            case 6: 
+                document.getElementById('transformed-data-process-table').innerHTML = createHtmlTable(transformedData);
+                elementToTypeset = document.getElementById('transformed-data-process-table').parentNode;
+                break;
+        }
+        if (elementToTypeset && typeof MathJax !== 'undefined' && typeof MathJax.typeset === 'function') {
+            MathJax.typesetPromise([elementToTypeset]).catch((err) => console.log('MathJax typeset error on step ' + step + ':', err));
+        }
+    }
+
+    function renderExplainedVarianceChart(canvasId, ev) {
+        const chartContainer = document.getElementById(canvasId);
+        if (!chartContainer) return;
+
+        const existingChart = Chart.getChart(canvasId);
+        if (existingChart) {
+            existingChart.destroy();
+        }
+
+        const totalVariance = ev.reduce((sum, val) => sum + val, 0);
+        const explainedVarianceRatio = ev.map(val => (val / totalVariance) * 100);
+        const cumulativeVariance = [];
+        explainedVarianceRatio.reduce((acc, val, i) => cumulativeVariance[i] = acc + val, 0);
+
+        const chartInstance = new Chart(chartContainer, {
+            type: 'bar',
+            data: {
+                labels: ev.map((_, i) => `PC${i+1}`),
+                datasets: [{
+                    label: 'Explained Variance (%)',
+                    data: explainedVarianceRatio,
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }, {
+                    label: 'Cumulative Variance (%)',
+                    data: cumulativeVariance,
+                    type: 'line',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    fill: false,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: { display: true, text: 'Percentage of Variance Explained' }
+                    },
+                    x: {
+                        title: { display: true, text: 'Principal Components' }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y.toFixed(1) + '%';
+                                }
+                                return label;
+                            }
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Explained Variance by Principal Component'
+                    }
+                }
+            }
+        });
+        if (canvasId === 'explainedVarianceChartProcess') {
+            explainedVarianceChartInstanceProcess = chartInstance;
+        } else if (canvasId === 'explainedVarianceChartViz') {
+            explainedVarianceChartInstanceViz = chartInstance;
+        }
+    }
+
+    function initVisualizationCharts() {
+        const stdDataPoints = standardizedDataMatrix.map(row => ({x: row[0], y: row[1]}));
+        const stdCtx = document.getElementById('standardizedDataChart');
+        if (stdCtx) {
+            const existingStdChart = Chart.getChart(stdCtx);
+            if (existingStdChart) existingStdChart.destroy();
+            standardizedDataChartInstance = new Chart(stdCtx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Standardized Data Points (X\')',
+                        data: stdDataPoints,
+                        backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                        borderColor: 'rgba(255, 99, 132, 1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: 'Standardized Feature 1 (X1\')' }, type: 'linear', position: 'bottom' },
+                        y: { title: { display: true, text: 'Standardized Feature 2 (X2\')' } }
+                    },
+                    plugins: {
+                        title: { display: true, text: 'Standardized Data (X\')' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `(X1': ${context.parsed.x.toFixed(3)}, X2': ${context.parsed.y.toFixed(3)})`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        renderExplainedVarianceChart('explainedVarianceChartViz', eigenvalues);
+
+        const transformedCtx = document.getElementById('transformedDataChart');
+        if (transformedCtx) {
+            const existingTransformedChart = Chart.getChart(transformedCtx);
+            if(existingTransformedChart) existingTransformedChart.destroy();
+            transformedDataChartInstance = new Chart(transformedCtx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Transformed Data (Projected onto PC1)',
+                        data: transformedData.rows.map(row => ({ x: row[1], y: 0 })), 
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        pointRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: 'PC1 Score (Z)' }, type: 'linear', position: 'bottom' },
+                        y: { display: false, min: -0.5, max: 0.5 } 
+                    },
+                    plugins: {
+                        title: { display: true, text: 'Data Projected onto PC1' },
+                         tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `PC1 Score: ${context.parsed.x.toFixed(3)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        showSection('overview');
+        populateNumericalExampleTables();
+        if (currentSection === 'visualization') {
+            initVisualizationCharts();
+        }
+    });
+
+</script>
+</body>
+</html>
